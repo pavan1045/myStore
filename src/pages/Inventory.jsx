@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Filter, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Trash2, Minus } from 'lucide-react';
 import { useItems, useCategories } from '../hooks/useData';
 import { dbService } from '../services/dbService';
 import { Button } from '../components/ui/Button';
@@ -13,43 +13,78 @@ function QuantityCell({ itemId, initialQuantity }) {
   const [value, setValue] = useState(initialQuantity);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleUpdate = async () => {
-    const numValue = Number(value);
-    // Optimization: Don't save if value hasn't changed or is invalid
-    if (numValue === initialQuantity || isNaN(numValue)) return;
+  const handleIncrement = () => {
+    const newVal = Number(value) + 1;
+    setValue(newVal);
+    saveUpdate(newVal);
+  };
 
+  const handleDecrement = () => {
+    const newVal = Math.max(0, Number(value) - 1);
+    setValue(newVal);
+    saveUpdate(newVal);
+  };
+
+  const saveUpdate = async (numValue) => {
+    if (isNaN(numValue) || numValue < 0) return;
     setIsSaving(true);
     try {
       await dbService.updateItem(itemId, { quantity: numValue });
     } catch (err) {
       console.error("Failed to update quantity", err);
-      setValue(initialQuantity); // Revert on error
+      setValue(initialQuantity);
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handleUpdate = () => {
+    const numValue = Number(value);
+    if (numValue === initialQuantity || isNaN(numValue)) return;
+    saveUpdate(numValue);
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      e.target.blur(); // Trigger blur to save
+      e.target.blur();
     }
   };
 
   return (
-    <div className="relative">
-      <input
-        type="number"
-        min="0"
-        className={`w-20 px-2 py-1 text-right text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${value === 0 || value === '0' ? 'text-red-600 border-red-300 bg-red-50' : 'border-gray-300 text-gray-900'
-          }`}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={handleUpdate}
-        onKeyDown={handleKeyDown}
-      />
-      {isSaving && (
-        <span className="absolute -right-3 top-2 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" title="Saving..."></span>
-      )}
+    <div className="flex items-center justify-center space-x-2 group pl-3.5">
+      <div className="relative flex items-center bg-gray-50 border border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-blue-500 transition-all">
+        <button
+          onClick={handleDecrement}
+          disabled={isSaving || value <= 0}
+          className="p-1 hover:bg-gray-200 text-gray-500 disabled:opacity-30 transition-colors border-r border-gray-200"
+          title="Decrease"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <input
+          type="number"
+          min="0"
+          className={`w-12 px-1 py-1 text-center text-sm bg-transparent focus:outline-none transition-colors font-mono font-medium ${value === 0 || value === '0' ? 'text-red-600' : 'text-gray-900'
+            }`}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={handleUpdate}
+          onKeyDown={handleKeyDown}
+        />
+        <button
+          onClick={handleIncrement}
+          disabled={isSaving}
+          className="p-1 hover:bg-gray-200 text-gray-500 disabled:opacity-30 transition-colors border-l border-gray-200"
+          title="Increase"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="w-1.5 h-1.5 flex-shrink-0">
+        {isSaving && (
+          <span className="block w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+        )}
+      </div>
     </div>
   );
 }
@@ -158,7 +193,7 @@ export default function Inventory() {
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Date Added</th>
-                <th className="px-4 py-3 text-right">Qty</th>
+                <th className="px-4 py-3 text-center">Qty</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -181,16 +216,18 @@ export default function Inventory() {
                     </td>
                     <td className="px-4 py-3 text-gray-500">{item.shelfLocation || '-'}</td>
                     <td className="px-4 py-3 text-gray-500">{formatDateToDisplay(item.addedDate) || '-'}</td>
-                    <td className="px-4 py-3 text-right font-mono font-medium">
+                    <td className="px-4 py-3 text-center font-mono font-medium">
                       <QuantityCell itemId={item.id} initialQuantity={item.quantity} />
                     </td>
-                    <td className="px-4 py-3 text-right space-x-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/items/edit/${item.id}`)}>
-                        <Edit2 className="h-4 w-4 text-blue-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(item.id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end space-x-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-50 group/edit" onClick={() => navigate(`/items/edit/${item.id}`)}>
+                          <Edit2 className="h-4 w-4 text-blue-600 group-hover/edit:scale-110 transition-transform" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-50 group/delete" onClick={() => handleDelete(item.id)}>
+                          <Trash2 className="h-4 w-4 text-red-500 group-hover/delete:scale-110 transition-transform" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
