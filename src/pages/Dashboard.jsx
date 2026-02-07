@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Edit2, Package } from 'lucide-react';
 import { useCategories, useItems } from '../hooks/useData';
 import { dbService } from '../services/dbService';
@@ -6,14 +7,20 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const categories = useCategories();
   const items = useItems(); // Fetch all items to calculate counts
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({ name: '' });
   const [error, setError] = useState('');
+
+  // Deletion state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
 
   const handleOpenModal = (category = null) => {
     if (category) {
@@ -25,6 +32,10 @@ export default function Dashboard() {
     }
     setError('');
     setIsModalOpen(true);
+  };
+
+  const handleCardClick = (categoryId) => {
+    navigate(`/items?category=${categoryId}`);
   };
 
   const handleSubmit = async (e) => {
@@ -49,15 +60,28 @@ export default function Dashboard() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure? This will delete all items in this category.')) {
-      try {
-        await dbService.deleteCategory(id);
-      } catch (err) {
-        console.error(err);
-        alert('Failed to delete category');
-      }
+  const handleDelete = (e, id) => {
+    e.stopPropagation();
+    setCategoryToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!categoryToDelete) return;
+
+    try {
+      await dbService.deleteCategory(categoryToDelete);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete category');
+    } finally {
+      setCategoryToDelete(null);
     }
+  };
+
+  const handleEdit = (e, category) => {
+    e.stopPropagation();
+    handleOpenModal(category);
   };
 
   if (!categories) return <div>Loading...</div>;
@@ -82,12 +106,16 @@ export default function Dashboard() {
             <h3 className="mt-2 text-sm font-semibold text-gray-900">No categories</h3>
             <p className="mt-1 text-sm text-gray-500">Get started by creating a new category.</p>
             <div className="mt-6">
-               <Button onClick={() => handleOpenModal()}>Add Category</Button>
+              <Button onClick={() => handleOpenModal()}>Add Category</Button>
             </div>
           </div>
         ) : (
           categories.map((category) => (
-            <Card key={category.id} className="hover:border-blue-200 transition-colors group">
+            <Card
+              key={category.id}
+              className="hover:border-blue-200 transition-colors group cursor-pointer"
+              onClick={() => handleCardClick(category.id)}
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-lg font-medium">
                   {category.name}
@@ -100,10 +128,10 @@ export default function Dashboard() {
                 </div>
                 <p className="text-xs text-gray-500">Items</p>
                 <div className="flex justify-end space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenModal(category)}>
+                  <Button variant="ghost" size="icon" onClick={(e) => handleEdit(e, category)}>
                     <Edit2 className="h-4 w-4 text-gray-500" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(category.id)}>
+                  <Button variant="ghost" size="icon" onClick={(e) => handleDelete(e, category.id)}>
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
                 </div>
@@ -137,6 +165,14 @@ export default function Dashboard() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Category?"
+        message="Are you sure you want to delete this category? This will also remove all items associated with it. This action cannot be undone."
+      />
     </div>
   );
 }

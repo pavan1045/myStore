@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
@@ -12,6 +13,10 @@ export default function Orders() {
   const [currentOrder, setCurrentOrder] = useState(null); // For editing, though requirements just said Add
   const [formData, setFormData] = useState({ itemName: '', quantity: 1 });
   const [error, setError] = useState('');
+
+  // Deletion state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState(null);
 
   // Fetch orders
   const loadOrders = async () => {
@@ -46,10 +51,21 @@ export default function Orders() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to remove this order?')) {
-      await dbService.deleteOrder(id);
+  const handleDelete = (id) => {
+    setOrderToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!orderToDelete) return;
+    try {
+      await dbService.deleteOrder(orderToDelete);
       loadOrders();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete order');
+    } finally {
+      setOrderToDelete(null);
     }
   };
 
@@ -78,10 +94,10 @@ export default function Orders() {
       {/* Pending Orders List */}
       <Card>
         <CardHeader>
-           <CardTitle className="flex items-center text-orange-600">
-             <Clock className="h-5 w-5 mr-2" />
-             Pending ({pendingOrders.length})
-           </CardTitle>
+          <CardTitle className="flex items-center text-orange-600">
+            <Clock className="h-5 w-5 mr-2" />
+            Pending ({pendingOrders.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {pendingOrders.length === 0 ? (
@@ -96,9 +112,9 @@ export default function Orders() {
                   </div>
                   <div className="flex space-x-2">
                     <Button variant="secondary" size="sm" onClick={() => handleStatusUpdate(order.id, 'pending')} title="Mark as Ordered">
-                       Mark Ordered
+                      Mark Ordered
                     </Button>
-                    <button 
+                    <button
                       onClick={() => handleDelete(order.id)}
                       className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                     >
@@ -115,14 +131,14 @@ export default function Orders() {
       {/* Ordered / History List */}
       <Card>
         <CardHeader>
-           <CardTitle className="flex items-center text-green-600">
-             <CheckCircle className="h-5 w-5 mr-2" />
-             Completed History
-           </CardTitle>
+          <CardTitle className="flex items-center text-green-600">
+            <CheckCircle className="h-5 w-5 mr-2" />
+            Completed History
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {completedOrders.length === 0 ? (
-             <p className="text-gray-400 text-center py-4">No order history.</p>
+            <p className="text-gray-400 text-center py-4">No order history.</p>
           ) : (
             <div className="divide-y opacity-75">
               {completedOrders.map(order => (
@@ -131,14 +147,14 @@ export default function Orders() {
                     <h3 className="font-medium">{order.itemName}</h3>
                     <p className="text-xs">Qty: {order.quantity}</p>
                   </div>
-                   <div className="flex space-x-2">
-                    <button 
+                  <div className="flex space-x-2">
+                    <button
                       onClick={() => handleStatusUpdate(order.id, 'ordered')}
                       className="text-xs text-blue-600 hover:underline"
                     >
                       Re-open
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleDelete(order.id)}
                       className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                     >
@@ -161,7 +177,7 @@ export default function Orders() {
           <Input
             label="Item Name"
             value={formData.itemName}
-            onChange={(e) => setFormData({...formData, itemName: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, itemName: e.target.value })}
             placeholder="e.g., USB-C Cable"
             required
           />
@@ -169,13 +185,13 @@ export default function Orders() {
             label="Quantity Needed"
             type="number"
             value={formData.quantity}
-            onChange={(e) => setFormData({...formData, quantity: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
             min="1"
             required
           />
-          
+
           {error && <p className="text-sm text-red-600">{error}</p>}
-          
+
           <div className="flex justify-end space-x-2 pt-4">
             <Button
               type="button"
@@ -190,6 +206,14 @@ export default function Orders() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Remove Order?"
+        message="Are you sure you want to remove this order from the list? This action cannot be undone."
+      />
     </div>
   );
 }

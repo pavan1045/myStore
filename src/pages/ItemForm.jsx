@@ -21,7 +21,8 @@ export default function ItemForm() {
     categoryId: '',
     quantity: 0,
     shelfLocation: '',
-    notes: ''
+    notes: '',
+    addedDate: new Date().toISOString().split('T')[0]
   });
   const [error, setError] = useState('');
 
@@ -34,7 +35,8 @@ export default function ItemForm() {
         categoryId: existingItem.categoryId || '',
         quantity: existingItem.quantity || 0,
         shelfLocation: existingItem.shelfLocation || '',
-        notes: existingItem.notes || ''
+        notes: existingItem.notes || '',
+        addedDate: existingItem.addedDate || new Date().toISOString().split('T')[0]
       });
     }
   }, [existingItem]);
@@ -127,6 +129,13 @@ export default function ItemForm() {
               value={formData.shelfLocation}
               onChange={e => setFormData({ ...formData, shelfLocation: e.target.value })}
               placeholder="Row A, Shelf 3"
+            />
+
+            <Input
+              type="date"
+              label="Date Added"
+              value={formData.addedDate}
+              onChange={e => setFormData({ ...formData, addedDate: e.target.value })}
             />
 
             <div className="space-y-1">

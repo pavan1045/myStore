@@ -1,4 +1,5 @@
 import { db } from "../db/db";
+import { formatDateToDisplay, parseDateFromDisplay } from "../utils/utils";
 
 export const dbService = {
   // --- Categories ---
@@ -92,6 +93,7 @@ export const dbService = {
   async exportDataCSV() {
     const categories = await db.categories.toArray();
     const items = await db.items.toArray();
+    console.log(`dbService.exportDataCSV: found ${categories.length} categories and ${items.length} items`);
 
     // Create a map of categoryId -> categoryName for easy lookup
     const catMap = {};
@@ -103,6 +105,7 @@ export const dbService = {
       "Model",
       "Category",
       "Location",
+      "Date Added",
       "Quantity",
       "Notes",
     ];
@@ -113,6 +116,7 @@ export const dbService = {
       item.modelNumber,
       catMap[item.categoryId] || "", // Resolve category ID to name
       item.shelfLocation,
+      formatDateToDisplay(item.addedDate) || "",
       item.quantity,
       item.notes,
     ]);
@@ -197,6 +201,7 @@ export const dbService = {
     const idxModel = getIndex("model");
     const idxCat = getIndex("category");
     const idxLoc = getIndex("location");
+    const idxDate = getIndex("date");
     const idxQty = getIndex("quantity");
     const idxNotes = getIndex("notes");
 
@@ -220,6 +225,7 @@ export const dbService = {
           modelNumber: idxModel !== -1 ? cols[idxModel]?.trim() : "",
           categoryName: catName,
           shelfLocation: idxLoc !== -1 ? cols[idxLoc]?.trim() : "",
+          addedDate: idxDate !== -1 ? parseDateFromDisplay(cols[idxDate]?.trim()) : new Date().toISOString().split('T')[0],
           quantity: idxQty !== -1 ? parseInt(cols[idxQty]) || 0 : 0,
           notes: idxNotes !== -1 ? cols[idxNotes]?.trim() : "",
         });
