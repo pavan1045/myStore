@@ -1,5 +1,5 @@
-import { getAuthHeaders } from '../utils/api';
-const API_URL = import.meta.env.VITE_API_URL + '/auth';
+import { getAuthHeaders, API_BASE_URL } from '../utils/api';
+const API_URL = `${API_BASE_URL}/auth`;
 
 export const authService = {
     async login(username, password, inviteToken = null) {

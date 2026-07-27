@@ -1,6 +1,6 @@
-import { getAuthHeaders } from '../utils/api';
+import { getAuthHeaders, API_BASE_URL } from '../utils/api';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE = API_BASE_URL;
 
 const handleResponseError = async (res) => {
   let errorMessage = 'Request failed';
