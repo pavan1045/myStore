@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
+const path = require('path');
 
 const app = express();
 
@@ -20,6 +21,24 @@ app.use('/api/supplier-payments', require('./routes/supplierPaymentRoutes'));
 app.use('/api/supplier-dashboard', require('./routes/supplierDashboardRoutes'));
 app.use('/api/team', require('./routes/teamRoutes'));
 app.use('/api/purchase-list', require('./routes/purchaseListRoutes'));
+
+// 404 handler for API routes (always return JSON)
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: `API endpoint ${req.method} ${req.originalUrl} not found` });
+});
+
+// Serve static frontend files from dist directory if available
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Fallback for React Router SPA routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'), (err) => {
+    if (err) {
+      res.status(404).json({ error: 'Not Found' });
+    }
+  });
+});
 
 async function seedDefaultUser() {
   try {
@@ -67,4 +86,3 @@ connectDB();
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-

@@ -1,4 +1,4 @@
-import { getAuthHeaders, API_BASE_URL } from '../utils/api';
+import { getAuthHeaders, API_BASE_URL, handleApiResponse } from '../utils/api';
 const API_URL = `${API_BASE_URL}/auth`;
 
 export const authService = {
@@ -8,10 +8,7 @@ export const authService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password, inviteToken })
         });
-        
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Login failed');
-        return data;
+        return handleApiResponse(response);
     },
 
     async signup(username, password, inviteToken = null, joinTeam = true) {
@@ -20,10 +17,7 @@ export const authService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password, inviteToken, joinTeam })
         });
-        
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Signup failed');
-        return data;
+        return handleApiResponse(response);
     },
 
     async changePassword(currentPassword, newPassword) {
@@ -32,19 +26,14 @@ export const authService = {
             headers: getAuthHeaders(),
             body: JSON.stringify({ currentPassword, newPassword })
         });
-        
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Password change failed');
-        return data;
+        return handleApiResponse(response);
     },
 
     async getProfile() {
         const response = await fetch(`${API_URL}/me`, {
             headers: getAuthHeaders()
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed to fetch profile');
-        return data;
+        return handleApiResponse(response);
     },
 
     async updateProfile(firstName, lastName) {
@@ -53,9 +42,7 @@ export const authService = {
             headers: getAuthHeaders(),
             body: JSON.stringify({ firstName, lastName })
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed to update profile');
-        return data;
+        return handleApiResponse(response);
     },
 
     async deleteAccount() {
@@ -63,8 +50,6 @@ export const authService = {
             method: 'DELETE',
             headers: getAuthHeaders()
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed to delete account');
-        return data;
+        return handleApiResponse(response);
     }
 };
