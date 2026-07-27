@@ -1,205 +1,113 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Download, Upload, AlertCircle, CheckCircle, FileDown } from 'lucide-react';
-import { dbService } from '../services/dbService';
-import { Button } from '../components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import React, { useState } from 'react';
+import { Database, User as UserIcon, Users, ChevronRight } from 'lucide-react';
+import { UserSettingsDetail } from '../components/settings/UserSettingsDetail';
+import { DataSettingsDetail } from '../components/settings/DataSettingsDetail';
+import { TeamSettingsDetail } from '../components/settings/TeamSettingsDetail';
+import { useTeam } from '../context/TeamContext';
 
 export default function Settings() {
-  const [message, setMessage] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [activeView, setActiveView] = useState('summary'); // 'summary' | 'user' | 'data' | 'team'
+  const { team } = useTeam();
+  const isOwner = team?.current_user_role === 'Owner';
 
-  // Export state
-  const [isPreparing, setIsPreparing] = useState(false);
-  const [exportUrl, setExportUrl] = useState(null);
-  const [exportFilename, setExportFilename] = useState('');
+  // If a detail view is active, render it instead of the summary cards
+  if (activeView === 'user') {
+    return <UserSettingsDetail onBack={() => setActiveView('summary')} />;
+  }
+  if (activeView === 'data') {
+    return <DataSettingsDetail onBack={() => setActiveView('summary')} />;
+  }
+  if (activeView === 'team' && isOwner) {
+    return <TeamSettingsDetail onBack={() => setActiveView('summary')} />;
+  }
 
-  // Import confirmation state
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [pendingFile, setPendingFile] = useState(null);
-  const [importConfig, setImportConfig] = useState({ title: '', message: '', variant: 'primary' });
-
-  // Cleanup object URL on unmount
-  useEffect(() => {
-    return () => {
-      if (exportUrl) window.URL.revokeObjectURL(exportUrl);
-    };
-  }, [exportUrl]);
-
-  const handlePrepareExport = async () => {
-    try {
-      console.log('Production Export: Preparing data...');
-      setIsPreparing(true);
-      setMessage(null);
-
-      const csvData = await dbService.exportDataCSV();
-
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csvData], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const filename = `myStore_inventory_${new Date().toISOString().slice(0, 10)}.csv`;
-
-      setExportUrl(url);
-      setExportFilename(filename);
-      console.log('Production Export: URL ready for direct download');
-
-    } catch (err) {
-      console.error('Production Export Error:', err);
-      setMessage({ type: 'error', text: 'Failed to prepare export.' });
-    } finally {
-      setIsPreparing(false);
-    }
-  };
-
-  const handleDownloadClick = () => {
-    // Clear state after a short delay so the link disappears after use
-    setTimeout(() => {
-      setExportUrl(null);
-      setExportFilename('');
-      setMessage({ type: 'success', text: 'Inventory downloaded successfully!' });
-    }, 1000);
-  };
-
-  const handleFileChange = (e) => {
-    console.log('Production Import: File change detected');
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const isJson = file.name.endsWith('.json');
-    setPendingFile(file);
-    setImportConfig({
-      title: isJson ? 'Overwrite All Data?' : 'Import Items?',
-      message: isJson
-        ? 'WARNING: This will OVERWRITE all current data with the backup. This cannot be undone. Are you sure?'
-        : 'This will import items from the file. Existing items with the same name and model will be updated. Continue?',
-      variant: isJson ? 'danger' : 'primary'
-    });
-    setIsImportModalOpen(true);
-
-    // Reset input
-    e.target.value = '';
-  };
-
-  const confirmImport = async () => {
-    if (!pendingFile) return;
-
-    try {
-      setLoading(true);
-      const text = await pendingFile.text();
-
-      if (pendingFile.name.endsWith('.json')) {
-        await dbService.importDataJSON(text);
-      } else {
-        await dbService.importDataCSV(text);
-      }
-
-      setMessage({ type: 'success', text: 'Data imported successfully! Reloading...' });
-      setTimeout(() => window.location.reload(), 1500);
-
-    } catch (err) {
-      console.error('Import Error:', err);
-      setMessage({ type: 'error', text: err.message || 'Failed to import data.' });
-    } finally {
-      setLoading(false);
-      setPendingFile(null);
-    }
-  };
-
+  // Summary View
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Settings</h1>
-        <p className="text-gray-500">Manage application data and preferences.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Application Settings</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your account, preferences, and system data.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Management</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="border border-blue-100 bg-blue-50 rounded-lg p-4 flex items-start space-x-3">
-            <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-            <div className="text-sm text-blue-800">
-              <p className="font-semibold">Local Storage Only</p>
-              <p>Your data is stored locally in this browser. Please export backups regularly.</p>
+      <div className={`grid grid-cols-1 ${isOwner ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
+        
+        {/* Team Members Summary Card (Owner Only) */}
+        {isOwner && (
+          <button 
+            onClick={() => setActiveView('team')}
+            className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-purple-200 dark:hover:border-purple-800 transition-all text-left flex flex-col items-start group"
+          >
+            <div className="flex items-center justify-between w-full mb-4">
+              <div className="flex items-center gap-3 text-purple-600 dark:text-purple-400">
+                <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <Users size={24} />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Team Members</h2>
+              </div>
+              <ChevronRight className="text-gray-400 group-hover:text-purple-600 transition-colors" />
             </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">
+              Manage your shared business workspace, invite team members, assign roles, and track audit activities.
+            </p>
+            <div className="mt-auto flex flex-wrap gap-2 w-full pt-2 border-t border-gray-50 dark:border-gray-700/50">
+              <span className="px-2 py-1 bg-purple-50 dark:bg-purple-900/30 text-xs font-bold text-purple-700 dark:text-purple-300 rounded-md">
+                {team?.team_name || 'My Team'}
+              </span>
+              <span className="px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md">
+                {team?.total_members || 1} Members
+              </span>
+            </div>
+          </button>
+        )}
+
+        {/* User Settings Summary Card */}
+        <button 
+          onClick={() => setActiveView('user')}
+          className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all text-left flex flex-col items-start group"
+        >
+          <div className="flex items-center justify-between w-full mb-4">
+            <div className="flex items-center gap-3 text-blue-600">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <UserIcon size={24} />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">User Settings</h2>
+            </div>
+            <ChevronRight className="text-gray-400 group-hover:text-blue-600 transition-colors" />
           </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="p-4 border rounded-lg hover:bg-gray-50 transition-colors flex flex-col items-center text-center">
-              <Download className="h-8 w-8 text-blue-600 mb-2" />
-              <h3 className="font-medium text-gray-900 mb-1">Export Data</h3>
-              <p className="text-xs text-gray-500 mb-4 h-8">Step 1: Prepare the file. Step 2: Download.</p>
-
-              {!exportUrl ? (
-                <Button
-                  onClick={handlePrepareExport}
-                  disabled={isPreparing}
-                  className="w-full"
-                >
-                  {isPreparing ? 'Preparing...' : 'Prepare Export'}
-                </Button>
-              ) : (
-                <a
-                  href={exportUrl}
-                  download={exportFilename}
-                  onClick={handleDownloadClick}
-                  className="w-full h-10 px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-md font-medium inline-flex items-center justify-center shadow-sm transition-colors"
-                >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Download CSV
-                </a>
-              )}
-            </div>
-
-            <div className="p-4 border rounded-lg hover:bg-gray-50 transition-colors flex flex-col items-center text-center">
-              <Upload className="h-8 w-8 text-blue-600 mb-2" />
-              <h3 className="font-medium text-gray-900 mb-1">Import Data</h3>
-              <p className="text-xs text-gray-500 mb-4 h-8">Select a CSV or JSON backup to restore your inventory.</p>
-
-              <input
-                type="file"
-                id="file-import-hidden"
-                onChange={handleFileChange}
-                className="hidden"
-                accept=".csv, .xlsx, .xls, .json"
-              />
-              <label
-                htmlFor="file-import-hidden"
-                className="w-full h-10 px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-md font-medium cursor-pointer inline-flex items-center justify-center shadow-sm transition-colors"
-              >
-                Select File
-              </label>
-            </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">
+            Manage your personal profile information, update your security password, and customize your display mode preferences.
+          </p>
+          <div className="mt-auto flex gap-2">
+            <span className="px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md">Profile</span>
+            <span className="px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md">Security</span>
+            <span className="px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md">Theme</span>
           </div>
+        </button>
 
-          {message && (
-            <div className={`p-4 rounded-lg flex items-center ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-              }`}>
-              {message.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 mr-2" />
-              ) : (
-                <AlertCircle className="h-5 w-5 mr-2" />
-              )}
-              {message.text}
+        {/* Data Management Summary Card */}
+        <button 
+          onClick={() => setActiveView('data')}
+          className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-green-200 dark:hover:border-green-800 transition-all text-left flex flex-col items-start group"
+        >
+          <div className="flex items-center justify-between w-full mb-4">
+            <div className="flex items-center gap-3 text-green-600">
+              <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <Database size={24} />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Exports and Imports</h2>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <ChevronRight className="text-gray-400 group-hover:text-green-600 transition-colors" />
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">
+            Safeguard your data by exporting full database backups, generating CSV reports, or restoring from a previous snapshot.
+          </p>
+          <div className="mt-auto flex gap-2">
+            <span className="px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md">Backups</span>
+            <span className="px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-md">CSV Exports</span>
+          </div>
+        </button>
 
-      <div className="text-center text-xs text-gray-400">
-        myStore v1.0.0
       </div>
-
-      <ConfirmationModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onConfirm={confirmImport}
-        title={importConfig.title}
-        message={importConfig.message}
-        confirmText="Proceed"
-        variant={importConfig.variant}
-      />
     </div>
   );
 }

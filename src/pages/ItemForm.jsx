@@ -1,166 +1,268 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
-import { useCategories, useItem } from '../hooks/useData';
-import { dbService } from '../services/dbService';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/Card';
+import { Save, ArrowLeft, Package } from 'lucide-react';
+import { Button } from '../components/common/Button';
+import { Input } from '../components/common/Input';
+import { useInventory } from '../hooks/useInventory';
+import { useCategories } from '../hooks/useCategories';
+import { Modal } from '../components/common/Modal';
+import { CategoryForm } from '../components/categories/CategoryForm';
 
 export default function ItemForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isEditMode = !!id;
+  const { actions, allItems } = useInventory();
+  const { categories, actions: categoryActions } = useCategories();
 
-  const categories = useCategories();
-  const existingItem = useItem(id);
-
+  const isEditing = !!id;
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isCategoryLoading, setIsCategoryLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     modelNumber: '',
+    supplierName: '',
     categoryId: '',
-    quantity: 0,
+    stockQty: 0,
+    minQty: 2,
+    costPrice: 0,
+    sellingPrice: 0,
     shelfLocation: '',
-    notes: '',
-    addedDate: new Date().toISOString().split('T')[0]
+    notes: ''
   });
-  const [error, setError] = useState('');
 
-  // Populate form when existing item loads
   useEffect(() => {
-    if (existingItem) {
-      setFormData({
-        name: existingItem.name,
-        modelNumber: existingItem.modelNumber || '',
-        categoryId: existingItem.categoryId || '',
-        quantity: existingItem.quantity || 0,
-        shelfLocation: existingItem.shelfLocation || '',
-        notes: existingItem.notes || '',
-        addedDate: existingItem.addedDate || new Date().toISOString().split('T')[0]
-      });
+    if (isEditing && allItems) {
+      const item = allItems.find(i => String(i.id) === String(id) || String(i._id) === String(id));
+      if (item) {
+        setFormData({
+          name: item.name || '',
+          modelNumber: item.modelNumber || '',
+          supplierName: item.supplierName || '',
+          categoryId: item.categoryId || '',
+          stockQty: item.stockQty || 0,
+          minQty: item.minQty || 0,
+          costPrice: item.costPrice || 0,
+          sellingPrice: item.sellingPrice || 0,
+          shelfLocation: item.shelfLocation || '',
+          notes: item.notes || ''
+        });
+      }
     }
-  }, [existingItem]);
+  }, [id, isEditing, allItems]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
-    if (!formData.name) return setError('Item Name is required');
-    if (!formData.categoryId) return setError('Category is required');
-
+    setIsLoading(true);
     try {
       const payload = {
         ...formData,
-        categoryId: Number(formData.categoryId), // Ensure number
-        quantity: Number(formData.quantity)
+        categoryId: formData.categoryId,
+        stockQty: Number(formData.stockQty),
+        minQty: Number(formData.minQty),
+        costPrice: Number(formData.costPrice),
+        sellingPrice: Number(formData.sellingPrice),
+        updatedAt: new Date().toISOString()
       };
 
-      if (isEditMode) {
-        await dbService.updateItem(Number(id), payload);
+      if (isEditing) {
+        await actions.updateItem(id, payload);
       } else {
-        await dbService.addItem(payload);
+        await actions.addItem(payload);
       }
       navigate('/items');
-    } catch (err) {
-      console.error(err);
-      setError('Failed to save item.');
+    } catch (error) {
+      alert('Failed to save item: ' + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  if (isEditMode && !existingItem) return <div>Loading...</div>;
+  const handleCategoryChange = (e) => {
+    const value = e.target.value;
+    if (value === 'create_new') {
+      setIsCategoryModalOpen(true);
+    } else {
+      setFormData({ ...formData, categoryId: value });
+    }
+  };
+
+  const handleCategorySubmit = async (data) => {
+    setIsCategoryLoading(true);
+    try {
+      const newCat = await categoryActions.addCategory(data.name, data.description);
+      setIsCategoryModalOpen(false);
+      if (newCat && newCat.id) {
+        setFormData(prev => ({ ...prev, categoryId: newCat.id }));
+      } else if (newCat && newCat._id) {
+        setFormData(prev => ({ ...prev, categoryId: newCat._id }));
+      }
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setIsCategoryLoading(false);
+    }
+  };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/items')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {isEditMode ? 'Edit Item' : 'Add New Item'}
-        </h1>
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft size={20} className="dark:text-white" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {isEditing ? 'Edit Product' : 'Add New Product'}
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {isEditing ? `Modifying SKU: ${formData.modelNumber || 'N/A'}` : 'Register a new item in the inventory system.'}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4 pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Item Name *"
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Micro USB Cable"
-                required
-              />
-              <Input
-                label="Model Number"
-                value={formData.modelNumber}
-                onChange={e => setFormData({ ...formData, modelNumber: e.target.value })}
-                placeholder="SN-12345"
-              />
-            </div>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-6 bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2">
+            <Package size={20} />
+            <h2 className="font-bold uppercase tracking-wider text-xs">General Information</h2>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Category *</label>
-                <select
-                  className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.categoryId}
-                  onChange={e => setFormData({ ...formData, categoryId: e.target.value })}
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories?.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
+          <Input
+            label="Product Name"
+            placeholder="e.g. Cat6 Ethernet Cable"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
 
-              <Input
-                type="number"
-                label="Quantity"
-                value={formData.quantity}
-                onChange={e => setFormData({ ...formData, quantity: e.target.value })}
-                min="0"
-              />
-            </div>
+          <Input
+            label="Model / SKU Number"
+            placeholder="e.g. SKU-12345"
+            value={formData.modelNumber}
+            onChange={(e) => setFormData({ ...formData, modelNumber: e.target.value })}
+          />
 
+          <Input
+            label="Supplier Name"
+            placeholder="e.g. Acme Supplies Inc."
+            value={formData.supplierName}
+            onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
+          />
+
+          <div className="space-y-1">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Category</label>
+            <select
+              className="w-full h-10 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              value={formData.categoryId}
+              onChange={handleCategoryChange}
+              required
+            >
+              <option value="">Select a Category</option>
+              <option value="create_new" className="font-bold text-blue-600 dark:text-blue-400">➕ Create Category</option>
+              {categories?.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="space-y-6 bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2">
+            <Package size={20} />
+            <h2 className="font-bold uppercase tracking-wider text-xs">Stock & Logistics</h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Shelf Location"
-              value={formData.shelfLocation}
-              onChange={e => setFormData({ ...formData, shelfLocation: e.target.value })}
-              placeholder="Row A, Shelf 3"
+              type="number"
+              label="Stock Quantity"
+              value={formData.stockQty}
+              onChange={(e) => setFormData({ ...formData, stockQty: e.target.value })}
+              min="0"
+              required
             />
-
             <Input
-              type="date"
-              label="Date Added"
-              value={formData.addedDate}
-              onChange={e => setFormData({ ...formData, addedDate: e.target.value })}
+              type="number"
+              label="Min Threshold"
+              value={formData.minQty}
+              onChange={(e) => setFormData({ ...formData, minQty: e.target.value })}
+              min="0"
+              required
+              helperText="Alerts when stock is ≤ this value"
             />
+          </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Notes</label>
-              <textarea
-                className="w-full min-h-[100px] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.notes}
-                onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional details..."
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              type="number"
+              step="any"
+              label="Cost Price"
+              placeholder="0.00"
+              value={formData.costPrice}
+              onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+              min="0"
+            />
+            <Input
+              type="number"
+              step="any"
+              label="Selling Price"
+              placeholder="0.00"
+              value={formData.sellingPrice}
+              onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
+              min="0"
+            />
+          </div>
 
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-          </CardContent>
-          <CardFooter className="flex justify-end space-x-2 border-t bg-gray-50/50 p-6">
-            <Button type="button" variant="secondary" onClick={() => navigate('/items')}>
-              Cancel
-            </Button>
-            <Button type="submit">
-              <Save className="mr-2 h-4 w-4" />
-              Save Item
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+          <Input
+            label="Shelf Location"
+            placeholder="e.g. A-12-3"
+            value={formData.shelfLocation}
+            onChange={(e) => setFormData({ ...formData, shelfLocation: e.target.value })}
+          />
+
+          <div className="space-y-1">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Notes & Specifications</label>
+            <textarea
+              className="w-full h-24 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Technical details, supplier info, etc."
+            />
+          </div>
+        </div>
+
+        <div className="md:col-span-2 flex justify-end gap-3 pt-4">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate('/items')}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            isLoading={isLoading}
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {isEditing ? 'Update Item' : 'Create Item'}
+          </Button>
+        </div>
+      </form>
+
+      <Modal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title="Add Category"
+      >
+        <CategoryForm
+          onSubmit={handleCategorySubmit}
+          onCancel={() => setIsCategoryModalOpen(false)}
+          isLoading={isCategoryLoading}
+        />
+      </Modal>
     </div>
   );
 }
