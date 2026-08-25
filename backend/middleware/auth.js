@@ -17,7 +17,8 @@ module.exports = async (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'Access denied. No token provided.' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const jwtSecret = process.env.JWT_SECRET || 'super_secret_jwt_key_for_mystore';
+    const decoded = jwt.verify(token, jwtSecret);
     req.user = decoded;
     req.userId = decoded.userId;
 

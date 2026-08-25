@@ -82,7 +82,8 @@ router.post('/signup', async (req, res) => {
       }).save();
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const jwtSecret = process.env.JWT_SECRET || 'super_secret_jwt_key_for_mystore';
+    const token = jwt.sign({ userId: user._id }, jwtSecret, { expiresIn: '7d' });
     res.json({ token, username, role: userRole });
   } catch (error) {
     console.error('Signup error:', error);
@@ -127,7 +128,8 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const jwtSecret = process.env.JWT_SECRET || 'super_secret_jwt_key_for_mystore';
+    const token = jwt.sign({ userId: user._id }, jwtSecret, { expiresIn: '7d' });
     res.json({ token, username, pendingInvite });
   } catch (error) {
     res.status(500).json({ error: 'Server error during login' });
