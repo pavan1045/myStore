@@ -29,6 +29,9 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (username, password, inviteToken = null) => {
         const data = await authService.login(username, password, inviteToken);
+        if (data && data.error) {
+            throw new Error(data.error);
+        }
         if (!data || !data.token) {
             throw new Error('Authentication failed. Server did not return a valid session token.');
         }
@@ -41,6 +44,9 @@ export const AuthProvider = ({ children }) => {
 
     const signup = async (username, password, inviteToken = null, joinTeam = true) => {
         const data = await authService.signup(username, password, inviteToken, joinTeam);
+        if (data && data.error) {
+            throw new Error(data.error);
+        }
         if (!data || !data.token) {
             throw new Error('Signup failed. Server did not return a valid session token.');
         }
