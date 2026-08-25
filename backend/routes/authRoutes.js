@@ -132,7 +132,8 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign({ userId: user._id }, jwtSecret, { expiresIn: '7d' });
     res.json({ token, username, pendingInvite });
   } catch (error) {
-    res.status(500).json({ error: 'Server error during login' });
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Server error during login', details: error.message });
   }
 });
 

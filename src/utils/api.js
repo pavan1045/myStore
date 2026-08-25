@@ -31,7 +31,7 @@ export const handleApiResponse = async (response) => {
         if (!response.ok) {
             throw new Error(`Server returned status ${response.status}`);
         }
-        return {};
+        throw new Error('Server returned invalid response format. Please check backend deployment URL.');
     }
 
     if (!response.ok) {

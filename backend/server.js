@@ -10,6 +10,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Middleware to check database connection status
+app.use((req, res, next) => {
+  if (mongoose.connection.readyState !== 1 && req.path.startsWith('/api')) {
+    return res.status(503).json({ 
+      error: 'Database connection is unavailable. Please check server logs and database configuration.' 
+    });
+  }
+  next();
+});
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
