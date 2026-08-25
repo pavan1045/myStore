@@ -23,7 +23,7 @@ app.use('/api/team', require('./routes/teamRoutes'));
 app.use('/api/purchase-list', require('./routes/purchaseListRoutes'));
 
 // 404 handler for API routes (always return JSON)
-app.use('/api/*', (req, res) => {
+app.use('/api', (req, res) => {
   res.status(404).json({ error: `API endpoint ${req.method} ${req.originalUrl} not found` });
 });
 
@@ -32,7 +32,7 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // Fallback for React Router SPA routes
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(distPath, 'index.html'), (err) => {
     if (err) {
       res.status(404).json({ error: 'Not Found' });
