@@ -2,7 +2,7 @@ services:
   - type: web
     name: mystore
     env: node
-    buildCommand: npm install && cd backend && npm install && cd .. && npm run build
+    buildCommand: npm install --include=dev && cd backend && npm install && cd .. && npm run build
     startCommand: node backend/server.js
     envVars:
       - key: NODE_ENV
