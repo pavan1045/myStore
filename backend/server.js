@@ -10,12 +10,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Middleware to check database connection status
-app.use((req, res, next) => {
+// Middleware to check database connection status with initial wait window
+app.use(async (req, res, next) => {
   if (mongoose.connection.readyState !== 1 && req.path.startsWith('/api')) {
-    return res.status(503).json({ 
-      error: 'Database connection is unavailable. Please check server logs and database configuration.' 
-    });
+    // Wait up to 3 seconds for DB connection to establish if server just started
+    let retries = 15;
+    while (mongoose.connection.readyState !== 1 && retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      retries--;
+    }
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        error: 'Database connection is initializing or unavailable. Please try again in a moment.' 
+      });
+    }
   }
   next();
 });
@@ -73,11 +81,11 @@ async function seedDefaultUser() {
 async function connectDB() {
   try {
     console.log('Connecting to MongoDB Atlas...');
-    await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 4000 });
-    console.log('Connected to MongoDB Atlas');
+    await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 2500 });
+    console.log('Connected to MongoDB Atlas successfully');
     await seedDefaultUser();
   } catch (err) {
-    console.warn('MongoDB Atlas connection failed:', err.message);
+    console.warn('MongoDB Atlas connection failed (Ensure IP 0.0.0.0/0 is whitelisted in MongoDB Atlas):', err.message);
     console.log('Starting in-memory MongoDB fallback...');
     try {
       const { MongoMemoryServer } = require('mongodb-memory-server');
